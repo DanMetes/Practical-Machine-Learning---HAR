@@ -49,7 +49,7 @@ train_dat <- read.csv("pml-training.csv",header=T)
 Remove the first 7 columns as they are not informative for the analysis (names, time and window count variables that do not seem to be useful for predicting the outcome variable). Also determine which variables have too many missing observations and remove those from the data as well. Pay atention to variables hat appear as factors and which might also need converting and removal. In the end there are 53 columns/variables left.
 
 
-```{r, warning=FALSE, error=FALSE, message=FALSE,}
+```{r, warning=FALSE, error=FALSE, message=FALSE}
 # Remove first 7 columns
 train_dat1 <- train_dat[,c(8:dim(train_dat)[[2]])]
 test_dat1 <- test_dat[,c(8:dim(test_dat)[[2]])]
@@ -132,22 +132,6 @@ confusionMatrix(rf_pred, crossval_dat2$classe)
 
 ## Final Predictions on the Testing Data and Conclusions
 
-The random forest model is used to predict the outcomes in the test data. Answers are then submited to the coursera site for answer validation.The code for submission was used as per the coursera instructions. It appears that the model was able to accurately predict all 20 testing outcomes (i.e. the 5 different executions of Unilateral Dumbbell Biceps Curl). In fact the current model since to be better prediction wise than the one used by the original researchers based on it's accuracy and confusion Matrix results.That said in our case we had access to the entire data
+The random forest model is used to predict the outcomes in the test data. Answers are then submited to the coursera site for answer validation.The code for submission was used as per the coursera instructions. It appears that the model was able to accurately predict all 20 testing outcomes (i.e. the 5 different executions of Unilateral Dumbbell Biceps Curl). In fact the current model since to be better prediction wise than the one used by the original researchers based on it's accuracy and confusion Matrix results.That said in our case we had access to the entire data.
 
-
-```{r, echo=FALSE}
-
-answers <- as.character(predict(rf_mod, test_dat2))
-
-pml_write_files = function(x){
-  n = length(x)
-  for(i in 1:n){
-    filename = paste0("problem_id_",i,".txt")
-    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
-  }
-}
-
-pml_write_files(answers)
-
-```
 
