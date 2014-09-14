@@ -1,0 +1,153 @@
+---
+title: "Practical Machine Learning - Human Activity Recognition"
+author: "Dan Metes"
+date: "Saturday, September 13, 2014"
+output: html_document
+---
+
+## Report Summary/Description
+
+This goal of this report is to predict the manner in which individuals performed a weight lifting exercise. The original dataset and more information on the experiment are available at the following location.
+
+http://groupware.les.inf.puc-rio.br/har
+
+The proposed dataset involved 6 participants, supervised by an experienced weight lifter that were asked to perform 10 repetitions of a dumbell bicep curl movement, in five different fashions. Only one of the five executions of the excercise was correct (Class A), while the other four (Classes B-E) were used to test whether proper and improper executions of the excercise could be correctly detected.
+
+The analysis presented in this report includes data cleaning/preprocessing, running of a variety of algorithnms (decision tree, random forest, linear discriminate analysis) and comparisons of the accuracy of the models. The best model is then used afterwards for predition purposes (i.e. Project submission: apply your machine learning algorithm to the 20 test cases available in the test data).
+
+A quick thank you to the team that collected the data used in this report:
+
+### Citation
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
+## Load the Data and Libraries
+
+Load the needed libraries as well as the data sets (train and est) from the corresponding csv files.
+
+```{r, message=FALSE}
+library(caret)
+library(rpart)
+library(randomForest)
+library(MASS)
+library(lattice)
+library(ggplot2)
+
+```
+
+```{r, warning=FALSE, error=FALSE, message=FALSE, cache=TRUE}
+
+setwd("C:/Users/Dan/Desktop/Coursera/8. Practical Machine Learning/Proj/")
+test_dat  <- read.csv("pml-testing.csv",header=T)
+train_dat <- read.csv("pml-training.csv",header=T)
+
+```
+
+## Data Clean-up
+
+Remove the first 7 columns as they are not informative for the analysis (names, time and window count variables that do not seem to be useful for predicting the outcome variable). Also determine which variables have too many missing observations and remove those from the data as well. Pay atention to variables hat appear as factors and which might also need converting and removal. In the end there are 53 columns/variables left.
+
+
+```{r, warning=FALSE, error=FALSE, message=FALSE,}
+# Remove first 7 columns
+train_dat1 <- train_dat[,c(8:dim(train_dat)[[2]])]
+test_dat1 <- test_dat[,c(8:dim(test_dat)[[2]])]
+
+# Remove those columns/variables with a large percentage of missing data (say >90% missing data - NA's)
+missing_cols <- which(colSums(is.na(train_dat1))/nrow(train_dat1) > 0.90)
+train_dat1 <- train_dat1[,-missing_cols]
+test_dat1 <- test_dat1[,-missing_cols]
+
+# Notice that many of th columns that are still in are empty but are factor variables; convert all to numeric except for the 
+# outcome variable an redo the above removal
+
+n <- dim(train_dat1)[[2]]-1
+
+for (i in 1:n) {
+    train_dat1[,i] <- as.numeric(as.character(train_dat1[,i]))
+    test_dat1[,i] <- as.numeric(as.character(test_dat1[,i]))
+}
+
+missing_cols <- which(colSums(is.na(train_dat1))/nrow(train_dat1) > 0.90)
+train_dat1 <- train_dat1[,-missing_cols]
+test_dat1 <- test_dat1[,-missing_cols]
+
+#here are 53 columns left after the data clean-up
+
+```
+
+## Pre-Proccessing: Splitting the Training Data
+
+Due to the large size of the training data we can split it into two training (80% of original training data) and a cross validation (20% of original training data) subsets. Later on predictions will be made on the testing data as well but since the current testing data is small we can use part of the training data for cross validations. 
+
+```{r, warning=FALSE, error=FALSE, message=FALSE}
+
+set.seed(100)
+trainIndex <- createDataPartition(train_dat1[,53], p = 0.8,list=FALSE)
+train_dat2 <- train_dat1[trainIndex,]
+crossval_dat2 <- train_dat1[-trainIndex,]
+test_dat2 <- test_dat1
+
+```
+
+
+## Putting Models to the Test
+
+Let us choose a number of models to fit to the new training data. The three candidates are: a linear discriminate analysis model, a decision tree, and a random forest. Set the seed to 100 for reproducibility.
+
+```{r, message=FALSE, cache=TRUE}
+
+set.seed(100)
+ld_mod <- train(classe ~ ., data = train_dat2, method='lda')
+tree_mod <- train(classe ~ ., data = train_dat2, method='rpart')
+rf_mod <- randomForest(classe ~ ., data = train_dat2)
+
+```
+
+## Asessing the Prediction Accuracy of the Models
+
+To assess the accuracy of the models we will use the cross validation data. Using the new train_dat2 data would results in an overestimation of accuracy since the models were fit to this subset.
+
+```{r}
+
+ld_pred <- predict(ld_mod, crossval_dat2)
+confusionMatrix(ld_pred, crossval_dat2$classe)$overall
+tree_pred <- predict(tree_mod, crossval_dat2)
+confusionMatrix(tree_pred, crossval_dat2$classe)$overall
+rf_pred <- predict(rf_mod, crossval_dat2)
+confusionMatrix(rf_pred, crossval_dat2$classe)$overall
+
+```
+
+It appears that the model with the highest accuracy, by far, is the random forest model (accuracy: .9959). The random forest model seems to be great at predicting the outcome (the way the exercis was executed in). A full summary of the prediction fit is given below.
+
+
+```{r}
+
+rf_pred <- predict(rf_mod, crossval_dat2)
+confusionMatrix(rf_pred, crossval_dat2$classe)
+
+```
+
+## Final Predictions on the Testing Data and Conclusions
+
+The random forest model is used to predict the outcomes in the test data. Answers are then submited to the coursera site for answer validation.The code for submission was used as per the coursera instructions. It appears that the model was able to accurately predict all 20 testing outcomes (i.e. the 5 different executions of Unilateral Dumbbell Biceps Curl). In fact the current model since to be better prediction wise than the one used by the original researchers based on it's accuracy and confusion Matrix results.That said in our case we had access to the entire data
+
+
+```{r, echo=FALSE}
+
+answers <- as.character(predict(rf_mod, test_dat2))
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(answers)
+
+```
+
